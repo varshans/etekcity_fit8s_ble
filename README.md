@@ -7,6 +7,7 @@ It has only been tested on the ESF-551 model. I have no idea whether it might al
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
 
 
+
 ## Installation
 
 Install the package using pip:
@@ -15,13 +16,20 @@ Install the package using pip:
 pip install etekcity_esf551_ble
 ```
 
+
 ## Quick Start
 
 Here's a basic example of how to use the library:
 
 ```python
 import asyncio
-from etekcity_esf551_ble import EtekcitySmartFitnessScale, WeightUnit, ScaleData, IMPEDANCE_KEY, WEIGHT_KEY
+from etekcity_esf551_ble import (
+    IMPEDANCE_KEY,
+    WEIGHT_KEY,
+    EtekcitySmartFitnessScale,
+    ScaleData,
+    WeightUnit,
+)
 
 async def main():
     def notification_callback(data: ScaleData):
@@ -38,6 +46,7 @@ async def main():
 
 asyncio.run(main())
 ```
+
 
 ## API Reference
 
@@ -76,10 +85,12 @@ A dataclass containing scale measurement data:
 - `display_unit`: Current display unit
 - `measurements`: Dictionary of measurements (currently supports: weight in kilograms and impedance in ohms)
 
+
 ## Compatibility
 
 - Tested on Mac (Apple Silicon) and Raspberry Pi 4
 - Compatibility with Windows is unknown
+
 
 ## Troubleshooting
 
@@ -92,11 +103,13 @@ scan on
 ```
 (See https://github.com/home-assistant/core/issues/76186#issuecomment-1204954485)
 
+
 ## Support the Project
 
 If you find this project helpful, consider buying me a coffee! Your support helps maintain and improve this library.
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
+
 
 ## License
 

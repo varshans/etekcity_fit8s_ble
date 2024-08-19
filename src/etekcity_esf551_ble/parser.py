@@ -14,11 +14,16 @@ from bleak.backends.scanner import AdvertisementData
 from bleak_retry_connector import establish_connection
 
 from .bluetooth import create_adv_receiver
-from .const import (ALIRO_CHARACTERISTIC_UUID, DISPLAY_UNIT_KEY,
-                    HW_REVISION_STRING_CHARACTERISTIC_UUID, IMPEDANCE_KEY,
-                    SW_REVISION_STRING_CHARACTERISTIC_UUID,
-                    UNIT_UPDATE_COMMAND, WEIGHT_CHARACTERISTIC_UUID_NOTIFY,
-                    WEIGHT_KEY)
+from .const import (
+    ALIRO_CHARACTERISTIC_UUID,
+    DISPLAY_UNIT_KEY,
+    HW_REVISION_STRING_CHARACTERISTIC_UUID,
+    IMPEDANCE_KEY,
+    SW_REVISION_STRING_CHARACTERISTIC_UUID,
+    UNIT_UPDATE_COMMAND,
+    WEIGHT_CHARACTERISTIC_UUID_NOTIFY,
+    WEIGHT_KEY,
+)
 
 _LOGGER = logging.getLogger(__name__)
 

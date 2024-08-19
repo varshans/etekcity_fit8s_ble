@@ -7,9 +7,11 @@ from typing import Any, Literal
 
 from bleak import BleakError
 from bleak.assigned_numbers import AdvertisementDataType
-from bleak.backends.scanner import (AdvertisementDataCallback,
-                                    BaseBleakScanner,
-                                    get_platform_scanner_backend_type)
+from bleak.backends.scanner import (
+    AdvertisementDataCallback,
+    BaseBleakScanner,
+    get_platform_scanner_backend_type,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
