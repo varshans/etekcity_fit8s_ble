@@ -33,8 +33,9 @@ from etekcity_esf551_ble import (
 
 async def main():
     def notification_callback(data: ScaleData):
-        print(f"Weight: {data.measurements[WEIGHT_KEY]} {data.display_unit.name}")
-        if 'impedance' in data.measurements:
+        print(f"Weight: {data.measurements[WEIGHT_KEY]} KG")
+        print(f"Display Unit: {data.display_unit.name}")
+        if "impedance" in data.measurements:
             print(f"Impedance: {data.measurements[IMPEDANCE_KEY]} Ω")
 
     scale = EtekcitySmartFitnessScale("XX:XX:XX:XX:XX:XX", notification_callback)
@@ -82,7 +83,7 @@ A dataclass containing scale measurement data:
 - `address`: Scale Bluetooth address
 - `hw_version`: Hardware version
 - `sw_version`: Software version
-- `display_unit`: Current display unit
+- `display_unit`: Current display unit (concerns only the weight as displayed on the scale, the measurement itself is always provided by the API in kilograms)
 - `measurements`: Dictionary of measurements (currently supports: weight in kilograms and impedance in ohms)
 
 
