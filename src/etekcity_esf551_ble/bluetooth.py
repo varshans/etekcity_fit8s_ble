@@ -46,7 +46,7 @@ class BluetoothScanningMode(Enum):
     ACTIVE = "active"
 
 
-SCANNING_MODE_TO_BLEAK = {
+SCANNING_MODE_TO_BLEAK: dict[BluetoothScanningMode, str] = {
     BluetoothScanningMode.ACTIVE: "active",
     BluetoothScanningMode.PASSIVE: "passive",
 }

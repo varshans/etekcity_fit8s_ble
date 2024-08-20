@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "etekcity_esf551_ble"
+version = "0.1.0"
+authors = [
+  { name="Ron", email="ronnnnnnn@gmail.com" },
+]
+description = "An unofficial Python package for interacting with Etekcity ESF-551 Smart Fitness Scales using BLE. Not affiliated with Etekcity, VeSync Co., Ltd., or any of their subsidiaries."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "bleak",
+    "bleak_retry_connector",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble"
+"Bug Tracker" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/etekcity_esf551_ble"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+]
