@@ -1,8 +1,10 @@
 # Etekcity ESF-551 BLE
 
-This package provides a basic interface for interacting with [Etekcity ESF-551 Smart Fitness Scale](https://etekcity.com/products/smart-fitness-scale-esf551) using Bluetooth Low Energy (BLE). It allows you to easily connect to the scale, receive weight and impedance measurements, and manage the display unit settings. It is a very basic library, providing access to just the most fundamental functionality of the scale.
+This package provides a basic unofficial interface for interacting with [Etekcity ESF-551 Smart Fitness Scale](https://etekcity.com/products/smart-fitness-scale-esf551) using Bluetooth Low Energy (BLE). It allows you to easily connect to the scale, receive weight and impedance measurements, and manage the display unit settings. It is a very basic library, providing access to just the most fundamental functionality of the scale.
 
 It has only been tested on the ESF-551 model. I have no idea whether it might also work with some other bluetooth bathroom scale models from Etekcity. If you try it with a different model, please let me know whether it works or not.
+
+**Disclaimer: This is an unofficial, community-developed library. It is not affiliated with, officially maintained by, or in any way officially connected with Etekcity or any of its subsidiaries or affiliates. The official Etekcity website can be found at https://www.etekcity.com. The name "Etekcity" as well as related names, marks, emblems and images are registered trademarks of their respective owners.**
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
 
@@ -35,7 +37,7 @@ async def main():
     def notification_callback(data: ScaleData):
         print(f"Weight: {data.measurements[WEIGHT_KEY]} KG")
         print(f"Display Unit: {data.display_unit.name}")
-        if "impedance" in data.measurements:
+        if IMPEDANCE_KEY in data.measurements:
             print(f"Impedance: {data.measurements[IMPEDANCE_KEY]} Ω")
 
     scale = EtekcitySmartFitnessScale("XX:XX:XX:XX:XX:XX", notification_callback)
@@ -107,7 +109,7 @@ scan on
 
 ## Support the Project
 
-If you find this project helpful, consider buying me a coffee! Your support helps maintain and improve this library.
+If you find this unofficial project helpful, consider buying me a coffee! Your support helps maintain and improve this library.
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
 
@@ -115,3 +117,8 @@ If you find this project helpful, consider buying me a coffee! Your support help
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## Disclaimer
+
+This is an independent project developed by the community. It is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by Etekcity or any of its affiliates or subsidiaries. All product and company names are the registered trademarks of their original owners. The use of any trade name or trademark is for identification and reference purposes only and does not imply any association with the trademark holder of their product brand.
