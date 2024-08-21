@@ -45,6 +45,8 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@v4
+    - name: Debug Environment Variables
+      run: env
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
