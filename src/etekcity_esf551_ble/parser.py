@@ -65,8 +65,8 @@ def parse(payload: bytearray) -> dict[str, int | float | None]:
         data[DISPLAY_UNIT_KEY] = int(payload[21])
         data[WEIGHT_KEY] = round(float(weight) / 1000, 2)
         if payload[20] == 1:
-            impedance = struct.unpack("<H", payload[13:15])[0]
-            data[IMPEDANCE_KEY] = int(impedance)
+            if impedance := struct.unpack("<H", payload[13:15])[0]:
+                data[IMPEDANCE_KEY] = int(impedance)
         return data
     return None
 

@@ -2,10 +2,13 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.etekcity_esf551_ble.const import (DISPLAY_UNIT_KEY, IMPEDANCE_KEY,
-                                           WEIGHT_KEY)
-from src.etekcity_esf551_ble.parser import (EtekcitySmartFitnessScale,
-                                            ScaleData, WeightUnit, parse)
+from src.etekcity_esf551_ble.const import DISPLAY_UNIT_KEY, IMPEDANCE_KEY, WEIGHT_KEY
+from src.etekcity_esf551_ble.parser import (
+    EtekcitySmartFitnessScale,
+    ScaleData,
+    WeightUnit,
+    parse,
+)
 
 
 @pytest.mark.asyncio
