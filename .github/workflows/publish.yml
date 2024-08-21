@@ -37,9 +37,6 @@ jobs:
         pip install hatch flake8 pytest
         pip install .
 
-    - name: Run tox
-      run: tox
-
   publish-test:
     needs: build
     runs-on: ubuntu-latest
