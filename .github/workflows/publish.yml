@@ -54,6 +54,7 @@ jobs:
     - name: Publish to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
+        user: __token__
         password: ${{ secrets.TESTPYPI_API_TOKEN }}
         repository-url: https://test.pypi.org/legacy/
     - name: Verify installation from TestPyPI
@@ -86,6 +87,7 @@ jobs:
     - name: Upload to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
+        user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
     - name: Upload Release Assets
       uses: actions/upload-release-asset@v3
