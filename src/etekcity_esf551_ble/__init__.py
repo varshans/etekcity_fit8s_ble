@@ -8,4 +8,4 @@ __all__ = [
     "IMPEDANCE_KEY",
     "WEIGHT_KEY",
 ]
-__version__ = "0.1.2"
+__version__ = "0.1.3"
