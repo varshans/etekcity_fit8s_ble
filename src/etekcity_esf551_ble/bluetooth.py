@@ -117,6 +117,8 @@ def create_adv_receiver(
     scanner_kwargs: dict[str, Any] = {
         "detection_callback": detection_callback,
         "scanning_mode": SCANNING_MODE_TO_BLEAK[scanning_mode],
+        "bluez": {},
+        "cb": {},
     }
     if IS_LINUX:
         # Only Linux supports multiple adapters
