@@ -5,18 +5,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -32,7 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
-      id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
@@ -48,11 +42,10 @@ jobs:
         run: python -m build
       - name: Publish to TestPyPI
         env:
-          PYPI_TOKEN: ${{ secrets.TESTPYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
         run: |
-          export ACTIONS_ID_TOKEN_REQUEST_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          export ACTIONS_ID_TOKEN_REQUEST_URL=${{ secrets.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          python -m twine upload --repository testpypi dist/*
+          twine upload --repository testpypi dist/*
       - name: Verify installation from TestPyPI
         run: |
           python -m venv test-env
@@ -65,7 +58,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
-      id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
@@ -81,11 +73,10 @@ jobs:
         run: python -m build
       - name: Upload to PyPI
         env:
-          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          export ACTIONS_ID_TOKEN_REQUEST_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          export ACTIONS_ID_TOKEN_REQUEST_URL=${{ secrets.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          python -m twine upload dist/*
+          twine upload dist/*
       - name: Upload Release Assets
         uses: actions/upload-release-asset@v3
         with:
