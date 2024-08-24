@@ -50,7 +50,7 @@ jobs:
       - name: Extract version from pyproject.toml
         id: extract_version
         run: |
-          VERSION=$(grep '^version =' pyproject.toml | sed -E 's/version = \"([^\"]+)\"/\\1/')
+          VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
