@@ -1,5 +1,6 @@
 from .const import IMPEDANCE_KEY, WEIGHT_KEY
 from .parser import EtekcitySmartFitnessScale, ScaleData, WeightUnit
+from ._version import __version__
 
 __all__ = [
     "EtekcitySmartFitnessScale",
@@ -8,4 +9,3 @@ __all__ = [
     "IMPEDANCE_KEY",
     "WEIGHT_KEY",
 ]
-__version__ = "0.1.5"
