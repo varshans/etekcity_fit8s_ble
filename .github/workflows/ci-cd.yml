@@ -38,7 +38,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     permissions:
       id-token: write
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -47,6 +47,13 @@ jobs:
           python-version: '3.12'
       - name: Clean up dist folder
         run: rm -rf dist/
+      - name: Extract version from pyproject.toml
+        id: extract_version
+        run: |
+          python -m pip install --upgrade pip
+          pip install toml
+          VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -66,9 +73,25 @@ jobs:
           pip install etekcity_esf551_ble==$VERSION
           python -c "from etekcity_esf551_ble import EtekcitySmartFitnessScale, WeightUnit; print(EtekcitySmartFitnessScale, WeightUnit)"
       - name: Upload Release Assets
-        uses: actions/upload-release-asset@v3
+        uses: actions/github-script@v6
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/*
-          asset_name: ${{ github.ref_name }}-package
-          asset_content_type: application/zip
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const fs = require('fs').promises;
+            const path = require('path');
+            
+            const files = await fs.readdir('dist');
+            for (const file of files) {
+              const filePath = path.join('dist', file);
+              const stats = await fs.stat(filePath);
+              if (stats.isFile()) {
+                console.log(`Uploading ${file}...`);
+                await github.rest.repos.uploadReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: context.payload.release.id,
+                  name: file,
+                  data: await fs.readFile(filePath)
+                });
+              }
+            }
