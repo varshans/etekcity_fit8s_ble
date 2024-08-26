@@ -76,21 +76,55 @@ jobs:
           fi
       - name: Build package
         run: python -m build
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         id: create_release
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            const { data: release } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `v${process.env.VERSION}`,
-              name: `Release v${process.env.VERSION}`,
-              draft: false,
-              prerelease: false
-            });
-            core.setOutput('release_id', release.id);
+            const fs = require('fs').promises;
+            const path = require('path');
+            
+            try {
+              // Check if the release already exists
+              const { data: existingRelease } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: `v${process.env.VERSION}`
+              });
+              
+              console.log(`Release for v${process.env.VERSION} already exists. Updating it.`);
+              
+              // Update existing release
+              const { data: updatedRelease } = await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: existingRelease.id,
+                name: `Release v${process.env.VERSION}`,
+                body: `Updated release for v${process.env.VERSION}`
+              });
+              
+              core.setOutput('release_id', updatedRelease.id);
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`Release for v${process.env.VERSION} does not exist. Creating a new one.`);
+                
+                // Create new release
+                const { data: newRelease } = await github.rest.repos.createRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  tag_name: `v${process.env.VERSION}`,
+                  name: `Release v${process.env.VERSION}`,
+                  body: `Release for v${process.env.VERSION}`,
+                  draft: false,
+                  prerelease: false
+                });
+                
+                core.setOutput('release_id', newRelease.id);
+              } else {
+                throw error;
+              }
+            }
       - name: Upload to PyPI
         env:
           TWINE_USERNAME: __token__
