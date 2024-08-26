@@ -5,8 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty to use version from _version.py)'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -35,7 +39,7 @@ jobs:
   publish:
     needs: [build]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'workflow_dispatch'
     permissions:
       id-token: write
       contents: write
@@ -52,19 +56,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
           pip install build twine
-      - name: Extract version from _version.py
+      - name: Extract version and update if necessary
         id: extract_version
         run: |
-          VERSION=$(python -c "from etekcity_esf551_ble._version import __version__; print(__version__)")
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+            sed -i "s/__version__ = .*/__version__ = \"${{ github.event.inputs.version }}\"/" src/etekcity_esf551_ble/_version.py
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add src/etekcity_esf551_ble/_version.py
+            git commit -m "Bump version to ${{ github.event.inputs.version }}"
+            git push
+          else
+            VERSION=$(python -c "from etekcity_esf551_ble._version import __version__; print(__version__)")
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
       - name: Build package
         run: python -m build
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          draft: false
+          prerelease: false
       - name: Upload to PyPI
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           twine upload dist/*
+      - name: Wait for PyPI
+        run: |
+          echo "Waiting for package to be available on PyPI..."
+          sleep 60
       - name: Verify installation from PyPI
         run: |
           python -m venv test-env
@@ -88,7 +116,7 @@ jobs:
                 await github.rest.repos.uploadReleaseAsset({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  release_id: context.payload.release.id,
+                  release_id: ${{ steps.create_release.outputs.id }},
                   name: file,
                   data: await fs.readFile(filePath)
                 });
