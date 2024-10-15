@@ -1,13 +1,12 @@
 # Etekcity ESF-551 BLE
 
-This package provides a basic unofficial interface for interacting with [Etekcity ESF-551 Smart Fitness Scale](https://etekcity.com/products/smart-fitness-scale-esf551) using Bluetooth Low Energy (BLE). It allows you to easily connect to the scale, receive weight and impedance measurements, and manage the display unit settings. It is a very basic library, providing access to just the most fundamental functionality of the scale.
+This package provides a basic unofficial interface for interacting with [Etekcity ESF-551 Smart Fitness Scale](https://etekcity.com/products/smart-fitness-scale-esf551) using Bluetooth Low Energy (BLE). It allows you to easily connect to the scale, receive weight and impedance measurements, manage the display unit settings, and calculate various body metrics.
 
 It has only been tested on the ESF-551 model. I have no idea whether it might also work with some other bluetooth bathroom scale models from Etekcity. If you try it with a different model, please let me know whether it works or not.
 
 **Disclaimer: This is an unofficial, community-developed library. It is not affiliated with, officially maintained by, or in any way officially connected with Etekcity, VeSync Co., Ltd. (the owner of the Etekcity brand), or any of their subsidiaries or affiliates. The official Etekcity website can be found at https://www.etekcity.com, and the official VeSync website at https://www.vesync.com. The names "Etekcity" and "VeSync" as well as related names, marks, emblems and images are registered trademarks of their respective owners.**
 
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
-
 
 
 ## Installation
@@ -31,15 +30,40 @@ from etekcity_esf551_ble import (
     EtekcitySmartFitnessScale,
     ScaleData,
     WeightUnit,
+    BodyMetrics,
+    Sex,
 )
 
 async def main():
     def notification_callback(data: ScaleData):
-        print(f"Weight: {data.measurements[WEIGHT_KEY]} KG")
+        print(f"Weight: {data.measurements[WEIGHT_KEY]} kg")
         print(f"Display Unit: {data.display_unit.name}")
         if IMPEDANCE_KEY in data.measurements:
             print(f"Impedance: {data.measurements[IMPEDANCE_KEY]} Ω")
+            
+            # Calculate body metrics
+            # Note: Replace with your actual height, age and sex
+            body_metrics = BodyMetrics(
+                weight_kg=data.measurements[WEIGHT_KEY],
+                height_m=1.75,  # Example height
+                age=30,  # Example age
+                sex=Sex.Male,  # Example sex
+                impedance=data.measurements[IMPEDANCE_KEY]
+            )
+            print(f"Body Mass Index: {body_metrics.body_mass_index:.2f}")
+            print(f"Body Fat Percentage: {body_metrics.body_fat_percentage:.1f}%")
+            print(f"Fat-Free Weight: {body_metrics.fat_free_weight:.2f} kg")
+            print(f"Subcutaneous Fat Percentage: {body_metrics.subcutaneous_fat_percentage:.1f}%")
+            print(f"Visceral Fat Value: {body_metrics.visceral_fat_value}")
+            print(f"Body Water Percentage: {body_metrics.body_water_percentage:.1f}%")
+            print(f"Basal Metabolic Rate: {body_metrics.basal_metabolic_rate} calories")
+            print(f"Skeletal Muscle Percentage: {body_metrics.skeletal_muscle_percentage:.1f}%")
+            print(f"Muscle Mass: {body_metrics.muscle_mass:.2f} kg")
+            print(f"Bone Mass: {body_metrics.bone_mass:.2f} kg")
+            print(f"Protein Percentage: {body_metrics.protein_percentage:.1f}%")
+            print(f"Metabolic Age: {body_metrics.metabolic_age} years")
 
+    # Replace XX:XX:XX:XX:XX:XX with your scale's Bluetooth address
     scale = EtekcitySmartFitnessScale("XX:XX:XX:XX:XX:XX", notification_callback)
     scale.display_unit = WeightUnit.KG  # Set display unit to kilograms
 
@@ -49,6 +73,7 @@ async def main():
 
 asyncio.run(main())
 ```
+For a real-life usage example of this library, check out the [Etekcity Fitness Scale BLE Integration for Home Assistant](https://github.com/ronnnnnnnnnnnnn/etekcity_fitness_scale_ble).
 
 
 ## API Reference
@@ -87,6 +112,40 @@ A dataclass containing scale measurement data:
 - `sw_version`: Software version
 - `display_unit`: Current display unit (concerns only the weight as displayed on the scale, the measurement itself is always provided by the API in kilograms)
 - `measurements`: Dictionary of measurements (currently supports: weight in kilograms and impedance in ohms)
+
+### `BodyMetrics`
+
+A class for calculating various body composition metrics based on height, age, sex, and the weight and impedance as measured by the scale, similar to the metrics calculated and shown in the VeSync app. Note that currently "Athlete Mode" is not supported.
+
+#### Methods:
+
+- `__init__(self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int)`
+
+#### Properties:
+
+- `body_mass_index`: Body Mass Index (BMI)
+- `body_fat_percentage`: Estimated body fat percentage
+- `fat_free_weight`: Weight of non-fat body mass in kg
+- `subcutaneous_fat_percentage`: Estimated subcutaneous fat percentage
+- `visceral_fat_value`: Estimated visceral fat level (unitless)
+- `body_water_percentage`: Estimated body water percentage
+- `basal_metabolic_rate`: Estimated basal metabolic rate in calories
+- `skeletal_muscle_percentage`: Estimated skeletal muscle percentage
+- `muscle_mass`: Estimated muscle mass in kg
+- `bone_mass`: Estimated bone mass in kg
+- `protein_percentage`: Estimated protein percentage
+- `weight_score`: Calculated weight score (0-100)
+- `fat_score`: Calculated fat score (0-100)
+- `bmi_score`: Calculated BMI score (0-100)
+- `health_score`: Overall health score based on other metrics (0-100)
+- `metabolic_age`: Estimated metabolic age in years
+
+### `Sex`
+
+An enum representing biological sex for body composition calculations:
+
+- `Sex.Male`
+- `Sex.Female`
 
 
 ## Compatibility
