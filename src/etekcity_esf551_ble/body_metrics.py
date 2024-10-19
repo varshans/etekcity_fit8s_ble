@@ -1,12 +1,20 @@
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from datetime import date
 from enum import IntEnum
 from functools import cached_property
 from math import floor
+
+from .const import IMPEDANCE_KEY, WEIGHT_KEY
+from .parser import EtekcitySmartFitnessScale, ScaleData, WeightUnit
 
 
 class Sex(IntEnum):
     Male = 0
     Female = 1
 
+
+@dataclass
 class BodyMetrics:
     def __init__(self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int):
         self.weight = weight_kg
@@ -19,9 +27,9 @@ class BodyMetrics:
     def body_mass_index(self) -> float:
         """
         Calculate Body Mass Index (BMI).
-        
+
         BMI is a measure of body fat based on height and weight.
-        
+
         Returns:
             float: The calculated BMI value.
         """
@@ -31,9 +39,9 @@ class BodyMetrics:
     def body_fat_percentage(self) -> float:
         """
         Calculate Body Fat Percentage (BFP).
-        
+
         BFP is the total mass of fat divided by total body mass, multiplied by 100.
-        
+
         Returns:
             float: The calculated BFP value.
         """
@@ -50,21 +58,21 @@ class BodyMetrics:
     def fat_free_weight(self) -> float:
         """
         Calculate Fat-Free Weight (FFW).
-        
+
         FFW is the difference between total body weight and body fat weight.
-        
+
         Returns:
             float: The calculated FFW value in kg.
         """
-        return round(self.weight * (1 - self.body_fat_percentage/100), 2)
+        return round(self.weight * (1 - self.body_fat_percentage / 100), 2)
 
     @cached_property
     def subcutaneous_fat_percentage(self) -> float:
         """
         Calculate Subcutaneous Fat Percentage.
-        
+
         Subcutaneous Fat is the fat that lies just beneath the skin.
-        
+
         Returns:
             float: The calculated subcutaneous fat percentage value.
         """
@@ -77,9 +85,9 @@ class BodyMetrics:
     def visceral_fat_value(self) -> int:
         """
         Calculate Visceral Fat Value.
-        
+
         Visceral Fat Value is a unitless measure of the level of fat stored in the abdominal cavity.
-        
+
         Returns:
             int: The calculated visceral fat value, between 1 and 30.
         """
@@ -97,9 +105,9 @@ class BodyMetrics:
     def body_water_percentage(self) -> float:
         """
         Calculate Body Water Percentage (BWP).
-        
+
         BWP is the total amount of water in the body as a percentage of total weight.
-        
+
         Returns:
             float: The calculated BWP value.
         """
@@ -113,9 +121,9 @@ class BodyMetrics:
     def basal_metabolic_rate(self) -> int:
         """
         Calculate Basal Metabolic Rate (BMR).
-        
+
         BMR is the number of calories required to keep your body functioning at rest.
-        
+
         Returns:
             int: The calculated BMR value.
         """
@@ -126,9 +134,9 @@ class BodyMetrics:
     def skeletal_muscle_percentage(self) -> float:
         """
         Calculate Skeletal Muscle Percentage.
-        
+
         Skeletal muscle is the muscle tissue directly connected to bones.
-        
+
         Returns:
             float: The calculated skeletal muscle percentage value.
         """
@@ -141,7 +149,7 @@ class BodyMetrics:
     def muscle_mass(self) -> float:
         """
         Calculate Muscle Mass.
-        
+
         Returns:
             float: The calculated muscle mass value in kg.
         """
@@ -153,9 +161,9 @@ class BodyMetrics:
     def bone_mass(self) -> float:
         """
         Calculate Bone Mass.
-        
+
         Bone mass is the total mass of the bones in the body.
-        
+
         Returns:
             float: The calculated Bone Mass value in kg.
         """
@@ -166,9 +174,9 @@ class BodyMetrics:
     def protein_percentage(self) -> float:
         """
         Calculate Protein Percentage.
-        
+
         Protein percentage is the percentage of total body weight that is made up of proteins.
-        
+
         Returns:
             float: The calculated protein percentage value.
         """
@@ -181,9 +189,9 @@ class BodyMetrics:
     def weight_score(self) -> int:
         """
         Calculate Weight Score.
-        
+
         Weight Score is a measure of how close the person's weight is to their ideal weight.
-        
+
         Returns:
             int: The calculated Weight Score, ranging from 0 to 100.
         """
@@ -206,9 +214,9 @@ class BodyMetrics:
     def fat_score(self) -> int:
         """
         Calculate Fat Score.
-        
+
         Fat Score is a measure of how close the person's body fat percentage is to the ideal range.
-        
+
         Returns:
             int: The calculated Fat Score, ranging from 0 to 100.
         """
@@ -223,9 +231,9 @@ class BodyMetrics:
     def bmi_score(self) -> int:
         """
         Calculate BMI Score.
-        
+
         BMI Score is a measure of how close the person's BMI is to the ideal range.
-        
+
         Returns:
             int: The calculated BMI Score.
         """
@@ -245,9 +253,9 @@ class BodyMetrics:
     def health_score(self) -> int:
         """
         Calculate Health Score.
-        
+
         Health Score is an overall measure of body composition health based on weight, fat, and BMI scores.
-        
+
         Returns:
             int: The calculated Health Score, ranging from 0 to 100.
         """
@@ -257,9 +265,9 @@ class BodyMetrics:
     def metabolic_age(self) -> int:
         """
         Calculate Metabolic Age.
-        
+
         Metabolic Age is an estimate of the body's metabolic rate compared to average values.
-        
+
         Returns:
             int: The calculated Metabolic Age, with a minimum of 18.
         """
@@ -293,10 +301,57 @@ class BodyMetrics:
             age_adjustment_factor = 13
         elif self.health_score < 98:
             age_adjustment_factor = 14
-        elif self.health_score < 99:  
+        elif self.health_score < 99:
             age_adjustment_factor = 15
         else:
             age_adjustment_factor = 16
 
         return max(18, self.age + 8 - age_adjustment_factor)
-    
+
+
+def calc_age(birthday: str) -> int:
+    today = date.today()
+    birthdate = date.fromisoformat(birthday)
+    years = today.year - birthdate.year
+    if today.month < birthdate.month or (
+        today.month == birthdate.month and today.day < birthdate.day
+    ):
+        years -= 1
+    return years
+
+
+class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
+    def __init__(
+        self,
+        address: str,
+        notification_callback: Callable[[ScaleData], None],
+        sex: Sex,
+        birthdate: date,
+        height_m: float,
+        display_unit: WeightUnit = None,
+    ) -> None:
+        self._sex = sex
+        self._birthdate = birthdate
+        self._height_m = height_m
+        self._original_callback = notification_callback
+        super().__init__(
+            address,
+            lambda data: self.wrapped_notification_callback(
+                self._sex, self._birthdate, self._height_m, data
+            ),
+            display_unit,
+        )
+
+    def wrapped_notification_callback(
+        self, sex: Sex, birthdate: date, height_m: float, data: ScaleData
+    ) -> None:
+        data.measurements |= asdict(
+            BodyMetrics(
+                data.measurements[WEIGHT_KEY],
+                height_m,
+                calc_age(birthdate),
+                sex,
+                data.measurements[IMPEDANCE_KEY],
+            )
+        )
+        self._original_callback(data)
