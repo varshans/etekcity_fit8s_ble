@@ -94,6 +94,22 @@ The main class for interacting with the scale.
 - `hw_version`: Get the hardware version of the scale (read-only).
 - `sw_version`: Get the software version of the scale (read-only).
 
+### `EtekcitySmartFitnessScaleWithBodyMetrics`
+
+An extended version of EtekcitySmartFitnessScale that automatically calculates body metrics.
+
+#### Methods:
+
+- `__init__(self, address: str, notification_callback: Callable[[ScaleData], None], sex: Sex, birthdate: date, height_m: float, display_unit: WeightUnit = None)`
+- `async_start()`: Start scanning for and connecting to the scale.
+- `async_stop()`: Stop the connection to the scale.
+
+#### Properties:
+
+- `display_unit`: Get or set the display unit (WeightUnit.KG, WeightUnit.LB or WeightUnit.ST). Returns None if the display unit is currently unknown (not set by the user and not yet received from the scale together with a stable weight measurement).
+- `hw_version`: Get the hardware version of the scale (read-only).
+- `sw_version`: Get the software version of the scale (read-only).
+
 ### `WeightUnit`
 
 An enum representing the possible display units:

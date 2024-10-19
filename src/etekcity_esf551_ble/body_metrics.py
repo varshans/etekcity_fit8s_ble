@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
 from datetime import date
 from enum import IntEnum
 from functools import cached_property
@@ -14,8 +13,10 @@ class Sex(IntEnum):
     Female = 1
 
 
-@dataclass
 class BodyMetrics:
+    """
+    Class for calculating various body composition metrics based on weight, height, age, sex, and impedance.
+    """
     def __init__(self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int):
         self.weight = weight_kg
         self.height = height_m
@@ -309,15 +310,17 @@ class BodyMetrics:
         return max(18, self.age + 8 - age_adjustment_factor)
 
 
-def calc_age(birthday: str) -> int:
+
+def _calc_age(birthdate: date) -> int:
     today = date.today()
-    birthdate = date.fromisoformat(birthday)
     years = today.year - birthdate.year
-    if today.month < birthdate.month or (
-        today.month == birthdate.month and today.day < birthdate.day
-    ):
+    if today.month < birthdate.month or (today.month == birthdate.month and today.day < birthdate.day):
         years -= 1
     return years
+
+
+def _as_dictionary(obj: BodyMetrics) -> dict[str, int | float]:
+        return{prop: getattr(obj, prop) for prop in dir(obj) if not prop.startswith('__')}
 
 
 class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
@@ -336,22 +339,20 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
         self._original_callback = notification_callback
         super().__init__(
             address,
-            lambda data: self.wrapped_notification_callback(
+            lambda data: self._wrapped_notification_callback(
                 self._sex, self._birthdate, self._height_m, data
             ),
             display_unit,
         )
-
-    def wrapped_notification_callback(
+    
+    def _wrapped_notification_callback(
         self, sex: Sex, birthdate: date, height_m: float, data: ScaleData
     ) -> None:
-        data.measurements |= asdict(
-            BodyMetrics(
-                data.measurements[WEIGHT_KEY],
-                height_m,
-                calc_age(birthdate),
-                sex,
-                data.measurements[IMPEDANCE_KEY],
-            )
-        )
+        data.measurements |= _as_dictionary(BodyMetrics(
+            data.measurements[WEIGHT_KEY],
+            height_m,
+            _calc_age(birthdate),
+            sex,
+            data.measurements[IMPEDANCE_KEY],
+        ))
         self._original_callback(data)
