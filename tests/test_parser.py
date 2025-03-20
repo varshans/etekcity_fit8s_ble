@@ -1,15 +1,13 @@
 from unittest.mock import AsyncMock, Mock, patch
-
 import pytest
-
 from src.etekcity_esf551_ble.const import DISPLAY_UNIT_KEY, IMPEDANCE_KEY, WEIGHT_KEY
 from src.etekcity_esf551_ble.parser import (
     EtekcitySmartFitnessScale,
     ScaleData,
     WeightUnit,
     parse,
+    ConnectionStatus,
 )
-
 
 @pytest.mark.asyncio
 async def test_scale_initialization():
@@ -20,7 +18,7 @@ async def test_scale_initialization():
     assert scale._notification_callback == callback
     assert scale._display_unit is None
     assert scale._unit_update_flag is False
-
+    assert scale._connection_status == ConnectionStatus.DISCONNECTED
 
 @pytest.mark.asyncio
 async def test_scale_notification_handler():
@@ -42,7 +40,6 @@ async def test_scale_notification_handler():
     assert called_scale_info.display_unit == WeightUnit.KG
     assert called_scale_info.measurements["weight"] == 1.0
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("display_unit", [WeightUnit.KG, WeightUnit.LB, WeightUnit.ST])
 async def test_etekcity_scale_set_display_unit(display_unit):
@@ -51,7 +48,6 @@ async def test_etekcity_scale_set_display_unit(display_unit):
 
     assert scale._display_unit == display_unit
     assert scale._unit_update_flag is True
-
 
 @pytest.mark.parametrize(
     "test_id, input_data, expected_output",
@@ -84,14 +80,11 @@ def test_parse(test_id, input_data, expected_output):
     result = parse(input_data)
     assert result == expected_output, f"Test case '{test_id}' failed"
 
-
 @pytest.mark.asyncio
 async def test_scale_start_stop():
-    with patch(
-        "src.etekcity_esf551_ble.parser.create_adv_receiver"
-    ) as mock_create_adv_receiver:
+    with patch("src.etekcity_esf551_ble.parser.get_platform_scanner_backend_type") as mock_get_scanner_backend:
         mock_scanner = AsyncMock()
-        mock_create_adv_receiver.return_value = mock_scanner
+        mock_get_scanner_backend.return_value = Mock(return_value=mock_scanner)
 
         scale = EtekcitySmartFitnessScale("00:11:22:33:44:55", Mock())
 
@@ -101,6 +94,37 @@ async def test_scale_start_stop():
         await scale.async_stop()
         mock_scanner.stop.assert_called_once()
 
+
+@pytest.mark.asyncio
+async def test_scale_advertisement_callback():
+    callback = Mock()
+    scale = EtekcitySmartFitnessScale("00:11:22:33:44:55", callback)
+    mock_device = Mock(address="00:11:22:33:44:55")
+    mock_advertisement_data = Mock()
+
+    await scale._advertisement_callback(mock_device, mock_advertisement_data)
+    assert scale._connection_status == ConnectionStatus.CONNECTED
+
+@pytest.mark.asyncio
+async def test_scale_advertisement_callback_wrong_address():
+    callback = Mock()
+    scale = EtekcitySmartFitnessScale("00:11:22:33:44:55", callback)
+    mock_device = Mock(address="AA:BB:CC:DD:EE:FF")
+    mock_advertisement_data = Mock()
+
+    await scale._advertisement_callback(mock_device, mock_advertisement_data)
+    assert scale._connection_status == ConnectionStatus.DISCONNECTED
+
+@pytest.mark.asyncio
+async def test_scale_advertisement_callback_already_connected():
+    callback = Mock()
+    scale = EtekcitySmartFitnessScale("00:11:22:33:44:55", callback)
+    scale._connection_status = ConnectionStatus.CONNECTED
+    mock_device = Mock(address="00:11:22:33:44:55")
+    mock_advertisement_data = Mock()
+
+    await scale._advertisement_callback(mock_device, mock_advertisement_data)
+    assert scale._connection_status == ConnectionStatus.CONNECTED
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
