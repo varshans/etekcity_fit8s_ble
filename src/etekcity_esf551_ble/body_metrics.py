@@ -4,8 +4,15 @@ from enum import IntEnum
 from functools import cached_property
 from math import floor
 
+from bleak.backends.scanner import BaseBleakScanner
+
 from .const import IMPEDANCE_KEY, WEIGHT_KEY
-from .parser import EtekcitySmartFitnessScale, ScaleData, WeightUnit
+from .parser import (
+    BluetoothScanningMode,
+    EtekcitySmartFitnessScale,
+    ScaleData,
+    WeightUnit,
+)
 
 
 class Sex(IntEnum):
@@ -17,7 +24,20 @@ class BodyMetrics:
     """
     Class for calculating various body composition metrics based on weight, height, age, sex, and impedance.
     """
-    def __init__(self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int):
+
+    def __init__(
+        self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int
+    ):
+        """
+        Initialize body metrics calculator.
+
+        Args:
+            weight_kg: Weight in kilograms
+            height_m: Height in meters
+            age: Age in years
+            sex: Biological sex (Male or Female)
+            impedance: Bioelectrical impedance measurement from the scale in ohms
+        """
         self.weight = weight_kg
         self.height = height_m
         self.age = age
@@ -34,7 +54,7 @@ class BodyMetrics:
         Returns:
             float: The calculated BMI value.
         """
-        return floor(self.weight / (self.height ** 2) * 100) / 100
+        return floor(self.weight / (self.height**2) * 100) / 100
 
     @cached_property
     def body_fat_percentage(self) -> float:
@@ -310,7 +330,6 @@ class BodyMetrics:
         return max(18, self.age + 8 - age_adjustment_factor)
 
 
-
 def _calc_age(birthdate: date) -> int:
     today = date.today()
     years = today.year - birthdate.year
@@ -320,10 +339,21 @@ def _calc_age(birthdate: date) -> int:
 
 
 def _as_dictionary(obj: BodyMetrics) -> dict[str, int | float]:
-        return{prop: getattr(obj, prop) for prop in dir(obj) if not prop.startswith('__')}
+    return {prop: getattr(obj, prop) for prop in dir(obj) if not prop.startswith("__")}
 
 
 class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
+    """
+    Extended Etekcity Smart Fitness Scale interface with body metrics calculations.
+
+    This class extends the basic scale interface to automatically calculate
+    body composition metrics based on the user's profile (sex, age, height)
+    and the measurements from the scale (weight, impedance).
+
+    All the body metrics are added to the ScaleData.measurements dictionary
+    before being passed to the notification callback.
+    """
+
     def __init__(
         self,
         address: str,
@@ -332,7 +362,27 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
         birthdate: date,
         height_m: float,
         display_unit: WeightUnit = None,
+        scanning_mode: BluetoothScanningMode = BluetoothScanningMode.ACTIVE,
+        adapter: str | None = None,
+        bleak_scanner_backend: BaseBleakScanner = None,
     ) -> None:
+        """
+        Initialize the scale interface with body metrics calculation.
+
+        Args:
+            address: Bluetooth address of the scale
+            notification_callback: Function to call when weight data is received
+            sex: Biological sex of the user (Male or Female)
+            birthdate: Date of birth of the user
+            height_m: Height of the user in meters
+            display_unit: Preferred weight unit (KG, LB, or ST). If specified,
+                          the scale will be instructed to change its display unit
+                          to this value upon connection.
+            scanning_mode: Mode for BLE scanning (ACTIVE or PASSIVE).
+            adapter: Bluetooth adapter to use (Linux only).
+            proxy_mode: Bluetooth proxy mode (NATIVE, PROXY, or HYBRID).
+            esphome_clients: List of ESPHome API clients for proxy mode.
+        """
         self._sex = sex
         self._birthdate = birthdate
         self._height_m = height_m
@@ -343,16 +393,21 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
                 self._sex, self._birthdate, self._height_m, data
             ),
             display_unit,
+            scanning_mode,
+            adapter,
+            bleak_scanner_backend,
         )
-    
+
     def _wrapped_notification_callback(
         self, sex: Sex, birthdate: date, height_m: float, data: ScaleData
     ) -> None:
-        data.measurements |= _as_dictionary(BodyMetrics(
-            data.measurements[WEIGHT_KEY],
-            height_m,
-            _calc_age(birthdate),
-            sex,
-            data.measurements[IMPEDANCE_KEY],
-        ))
+        data.measurements |= _as_dictionary(
+            BodyMetrics(
+                data.measurements[WEIGHT_KEY],
+                height_m,
+                _calc_age(birthdate),
+                sex,
+                data.measurements[IMPEDANCE_KEY],
+            )
+        )
         self._original_callback(data)
