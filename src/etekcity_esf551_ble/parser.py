@@ -7,6 +7,7 @@ import platform
 import struct
 from collections.abc import Callable
 from enum import IntEnum, StrEnum
+from typing import Any
 
 from bleak import BleakClient
 from bleak.assigned_numbers import AdvertisementDataType
