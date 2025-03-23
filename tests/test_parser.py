@@ -6,7 +6,6 @@ from src.etekcity_esf551_ble.parser import (
     ScaleData,
     WeightUnit,
     parse,
-    ConnectionStatus,
 )
 
 @pytest.mark.asyncio
@@ -18,7 +17,6 @@ async def test_scale_initialization():
     assert scale._notification_callback == callback
     assert scale._display_unit is None
     assert scale._unit_update_flag is False
-    assert scale._connection_status == ConnectionStatus.DISCONNECTED
 
 @pytest.mark.asyncio
 async def test_scale_notification_handler():
@@ -93,7 +91,7 @@ async def test_scale_start_stop():
 
         await scale.async_stop()
         mock_scanner.stop.assert_called_once()
-        
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
