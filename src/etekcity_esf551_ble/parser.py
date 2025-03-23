@@ -7,6 +7,7 @@ import platform
 import struct
 from collections.abc import Callable
 from enum import IntEnum, StrEnum
+from typing import Any
 
 from bleak import BleakClient
 from bleak.assigned_numbers import AdvertisementDataType
@@ -216,14 +217,9 @@ class EtekcitySmartFitnessScale:
             self._scanner = bleak_scanner_backend
             self._scanner.register_detection_callback(self._advertisement_callback)
         self._lock = asyncio.Lock()
-        self._connection_status = ConnectionStatus.DISCONNECTED
         self._unit_update_buff = bytearray.fromhex(UNIT_UPDATE_COMMAND)
         if display_unit != None:
             self.display_unit = display_unit
-
-    @property
-    def connection_status(self) -> ConnectionStatus:
-        return self._connection_status
 
     @property
     def hw_version(self) -> str:
@@ -316,7 +312,7 @@ class EtekcitySmartFitnessScale:
         Args:
             _: The BleakClient instance that disconnected (unused)
         """
-        self._connection_status = ConnectionStatus.DISCONNECTED
+        self._client = None
         _LOGGER.debug("Scale disconnected")
 
     async def _advertisement_callback(
@@ -333,30 +329,24 @@ class EtekcitySmartFitnessScale:
             ble_device: The detected Bluetooth device
             _: Advertisement data (unused)
         """
-        if (
-            ble_device.address != self.address
-            or self._connection_status != ConnectionStatus.DISCONNECTED
-        ):
+        if ble_device.address != self.address:
             return
+        
         async with self._lock:
-            if self._connection_status != ConnectionStatus.DISCONNECTED:
+            if self._client != None:
                 return
-            self._connection_status = ConnectionStatus.CONNECTING
-
-        try:
-            self._client = await establish_connection(
-                BleakClient,
-                ble_device,
-                self.address,
-                self._unavailable_callback,
-            )
-            _LOGGER.debug("Connected to scale: %s", self.address)
-            self._connection_status = ConnectionStatus.CONNECTED
-        except Exception as ex:
-            _LOGGER.exception("Could not connect to scale: %s(%s)", type(ex), ex.args)
-            self._client = None
-            self._connection_status = ConnectionStatus.DISCONNECTED
-            return
+            try:
+                self._client = await establish_connection(
+                    BleakClient,
+                    ble_device,
+                    self.address,
+                    self._unavailable_callback,
+                )
+                _LOGGER.debug("Connected to scale: %s", self.address)
+            except Exception as ex:
+                _LOGGER.exception("Could not connect to scale: %s(%s)", type(ex), ex.args)
+                self._client = None
+                return
 
         try:
             if self._unit_update_flag:
