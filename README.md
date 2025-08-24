@@ -1,199 +1,172 @@
-# Etekcity ESF-551 BLE
+# Etekcity Fit 8S / ESF-551 BLE
 
-This package provides a basic unofficial interface for interacting with [Etekcity ESF-551 Smart Fitness Scale](https://etekcity.com/products/smart-fitness-scale-esf551) using Bluetooth Low Energy (BLE). It allows you to easily connect to the scale, receive weight and impedance measurements, manage the display unit settings, and calculate various body metrics.
+This package provides a basic unofficial interface for interacting with **Etekcity Fit 8S** and ESF-551 Smart Fitness Scale using Bluetooth Low Energy (BLE).
 
-It has only been tested on the ESF-551 model. I have no idea whether it might also work with some other bluetooth bathroom scale models from Etekcity. If you try it with a different model, please let me know whether it works or not.
+It lets you:
 
-**Disclaimer: This is an unofficial, community-developed library. It is not affiliated with, officially maintained by, or in any way officially connected with Etekcity, VeSync Co., Ltd. (the owner of the Etekcity brand), or any of their subsidiaries or affiliates. The official Etekcity website can be found at https://www.etekcity.com, and the official VeSync website at https://www.vesync.com. The names "Etekcity" and "VeSync" as well as related names, marks, emblems and images are registered trademarks of their respective owners.**
+- Receive **weight** and **impedance** measurements.
+- Work in either **GATT connect mode** or **advertisement-only mode** (no pairing required for FIT 8S).
+- Manage the display unit setting.
+- Calculate various **body metrics** (BMI, BFP, muscle mass, water %, metabolic age, etc.).
 
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
+It has been tested on the **Fit 8S / ESF-551**. Other models may or may not work. If you try it with a different Etekcity scale, feedback is welcome.
 
+**Disclaimer**: This is an unofficial, community-developed library. It is not affiliated with, officially maintained by, or in any way officially connected with Etekcity, VeSync Co., Ltd. (the owner of the Etekcity brand), or any of their subsidiaries or affiliates. The official Etekcity website can be found at [etekcity.com](https://www.etekcity.com), and the official VeSync website at [vesync.com](https://www.vesync.com). The names "Etekcity" and "VeSync" as well as related marks are registered trademarks of their respective owners.
+
+---
 
 ## Installation
 
-Install the package using pip:
-
 ```bash
-pip install etekcity_esf551_ble
+pip install etekcity_fit8s_ble
 ```
 
+---
 
 ## Quick Start
 
-Here's a basic example of how to use the library:
+### Classic GATT mode (connect + notify)
 
 ```python
 import asyncio
-from etekcity_esf551_ble import (
-    IMPEDANCE_KEY,
-    WEIGHT_KEY,
-    EtekcitySmartFitnessScale,
-    ScaleData,
-    WeightUnit,
-    BodyMetrics,
-    Sex,
+from etekcity_fit8s_ble import (
+    IMPEDANCE_KEY, WEIGHT_KEY,
+    EtekcitySmartFitnessScale, ScaleData, WeightUnit,
+    BodyMetrics, Sex,
 )
 
 async def main():
-    def notification_callback(data: ScaleData):
+    def on_data(data: ScaleData):
         print(f"Weight: {data.measurements[WEIGHT_KEY]} kg")
-        print(f"Display Unit: {data.display_unit.name}")
         if IMPEDANCE_KEY in data.measurements:
             print(f"Impedance: {data.measurements[IMPEDANCE_KEY]} Ω")
-            
-            # Calculate body metrics
-            # Note: Replace with your actual height, age and sex
-            body_metrics = BodyMetrics(
+            # Add body metrics
+            metrics = BodyMetrics(
                 weight_kg=data.measurements[WEIGHT_KEY],
-                height_m=1.75,  # Example height
-                age=30,  # Example age
-                sex=Sex.Male,  # Example sex
-                impedance=data.measurements[IMPEDANCE_KEY]
+                height_m=1.75,
+                age=30,
+                sex=Sex.Male,
+                impedance=data.measurements[IMPEDANCE_KEY],
             )
-            print(f"Body Mass Index: {body_metrics.body_mass_index:.2f}")
-            print(f"Body Fat Percentage: {body_metrics.body_fat_percentage:.1f}%")
-            print(f"Fat-Free Weight: {body_metrics.fat_free_weight:.2f} kg")
-            print(f"Subcutaneous Fat Percentage: {body_metrics.subcutaneous_fat_percentage:.1f}%")
-            print(f"Visceral Fat Value: {body_metrics.visceral_fat_value}")
-            print(f"Body Water Percentage: {body_metrics.body_water_percentage:.1f}%")
-            print(f"Basal Metabolic Rate: {body_metrics.basal_metabolic_rate} calories")
-            print(f"Skeletal Muscle Percentage: {body_metrics.skeletal_muscle_percentage:.1f}%")
-            print(f"Muscle Mass: {body_metrics.muscle_mass:.2f} kg")
-            print(f"Bone Mass: {body_metrics.bone_mass:.2f} kg")
-            print(f"Protein Percentage: {body_metrics.protein_percentage:.1f}%")
-            print(f"Metabolic Age: {body_metrics.metabolic_age} years")
+            print("Body Fat %:", metrics.body_fat_percentage)
 
-    # Replace XX:XX:XX:XX:XX:XX with your scale's Bluetooth address
-    scale = EtekcitySmartFitnessScale("XX:XX:XX:XX:XX:XX", notification_callback)
-    scale.display_unit = WeightUnit.KG  # Set display unit to kilograms
-
+    scale = EtekcitySmartFitnessScale("AA:BB:CC:DD:EE:FF", on_data)
+    scale.display_unit = WeightUnit.KG
     await scale.async_start()
-    await asyncio.sleep(30)  # Wait for measurements
+    await asyncio.sleep(30)
     await scale.async_stop()
 
 asyncio.run(main())
 ```
-For a real-life usage example of this library, check out the [Etekcity Fitness Scale BLE Integration for Home Assistant](https://github.com/ronnnnnnnnnnnnn/etekcity_fitness_scale_ble).
 
+### Advertisement-only mode (no connect for FIT 8S)
+
+```python
+import asyncio
+from datetime import date
+
+from etekcity_fit8s_ble import (
+    EtekcitySmartFitnessScaleWithBodyMetrics,
+    Sex,
+    WeightUnit,
+)
+
+
+def on_data(scale_data):
+    print("ADV Weight (kg):", scale_data.measurements.get("weight"))
+    print("Impedance (ohm):", scale_data.measurements.get("impedance"))
+    print("Body Fat %:", scale_data.measurements.get("body_fat_percentage"))
+
+
+async def main():
+    scale = EtekcitySmartFitnessScaleWithBodyMetrics(
+        notification_callback=on_data,
+        sex=Sex.Male,
+        birthdate=date(1990, 1, 1),
+        height_m=1.80,
+        display_unit=WeightUnit.KG,
+        use_advertisements=True,   # ADV mode (no GATT connect)
+    )
+
+    await scale.async_start()
+    print("Listening… step on the scale. Press Ctrl+C to stop.")
+
+    try:
+        while True:
+                await asyncio.sleep(1)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        await scale.async_stop()
+        print("Stopped.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
 
 ## API Reference
 
 ### `EtekcitySmartFitnessScale`
 
-The main class for interacting with the scale.
-
-#### Methods:
-
-- `__init__(self, address: str, notification_callback: Callable[[ScaleData], None], display_unit: WeightUnit = None)`
-- `async_start()`: Start scanning for and connecting to the scale.
-- `async_stop()`: Stop the connection to the scale.
-
-#### Properties:
-
-- `display_unit`: Get or set the display unit (WeightUnit.KG, WeightUnit.LB or WeightUnit.ST). Returns None if the display unit is currently unknown (not set by the user and not yet received from the scale together with a stable weight measurement).
-- `hw_version`: Get the hardware version of the scale (read-only).
-- `sw_version`: Get the software version of the scale (read-only).
+- `__init__(address, notification_callback, display_unit=None, ...)`
+- `async_start()` / `async_stop()`
 
 ### `EtekcitySmartFitnessScaleWithBodyMetrics`
 
-An extended version of EtekcitySmartFitnessScale that automatically calculates body metrics.
-
-#### Methods:
-
-- `__init__(self, address: str, notification_callback: Callable[[ScaleData], None], sex: Sex, birthdate: date, height_m: float, display_unit: WeightUnit = None)`
-- `async_start()`: Start scanning for and connecting to the scale.
-- `async_stop()`: Stop the connection to the scale.
-
-#### Properties:
-
-- `display_unit`: Get or set the display unit (WeightUnit.KG, WeightUnit.LB or WeightUnit.ST). Returns None if the display unit is currently unknown (not set by the user and not yet received from the scale together with a stable weight measurement).
-- `hw_version`: Get the hardware version of the scale (read-only).
-- `sw_version`: Get the software version of the scale (read-only).
+- Same as above, but requires `sex`, `birthdate`, and `height_m`.
+- Adds automatic body composition calculations.
+- New optional `use_advertisements: bool` flag to read directly from broadcast frames.
 
 ### `WeightUnit`
 
-An enum representing the possible display units:
-
-- `WeightUnit.KG`: Kilograms
-- `WeightUnit.LB`: Pounds
-- `WeightUnit.ST`: Stones
+- `WeightUnit.KG`, `WeightUnit.LB`, `WeightUnit.ST`
 
 ### `ScaleData`
 
-A dataclass containing scale measurement data:
-
-- `name`: Scale name
-- `address`: Scale Bluetooth address
-- `hw_version`: Hardware version
-- `sw_version`: Software version
-- `display_unit`: Current display unit (concerns only the weight as displayed on the scale, the measurement itself is always provided by the API in kilograms)
-- `measurements`: Dictionary of measurements (currently supports: weight in kilograms and impedance in ohms)
+- `name`, `address`, `hw_version`, `sw_version`, `display_unit`, `measurements`
 
 ### `BodyMetrics`
 
-A class for calculating various body composition metrics based on height, age, sex, and the weight and impedance as measured by the scale, similar to the metrics calculated and shown in the VeSync app. Note that currently "Athlete Mode" is not supported.
-
-#### Methods:
-
-- `__init__(self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int)`
-
-#### Properties:
-
-- `body_mass_index`: Body Mass Index (BMI)
-- `body_fat_percentage`: Estimated body fat percentage
-- `fat_free_weight`: Weight of non-fat body mass in kg
-- `subcutaneous_fat_percentage`: Estimated subcutaneous fat percentage
-- `visceral_fat_value`: Estimated visceral fat level (unitless)
-- `body_water_percentage`: Estimated body water percentage
-- `basal_metabolic_rate`: Estimated basal metabolic rate in calories
-- `skeletal_muscle_percentage`: Estimated skeletal muscle percentage
-- `muscle_mass`: Estimated muscle mass in kg
-- `bone_mass`: Estimated bone mass in kg
-- `protein_percentage`: Estimated protein percentage
-- `weight_score`: Calculated weight score (0-100)
-- `fat_score`: Calculated fat score (0-100)
-- `bmi_score`: Calculated BMI score (0-100)
-- `health_score`: Overall health score based on other metrics (0-100)
-- `metabolic_age`: Estimated metabolic age in years
+Calculates BMI, body fat %, fat-free weight, subcutaneous fat, visceral fat value, body water %, BMR, skeletal muscle %, muscle mass, bone mass, protein %, scores, and metabolic age.
 
 ### `Sex`
 
-An enum representing biological sex for body composition calculations:
+- `Sex.Male`, `Sex.Female`
 
-- `Sex.Male`
-- `Sex.Female`
-
+---
 
 ## Compatibility
 
-- Tested on Mac (Apple Silicon) and Raspberry Pi 4
-- Compatibility with Windows is unknown
+- Verified on **Fit 8S / ESF-551**
+- Works on macOS (CoreBluetooth) and Linux (BlueZ, e.g. Raspberry Pi 4).
+- Windows support is untested.
 
+---
 
 ## Troubleshooting
 
-On Raspberry Pi 4 (and possibly other Linux machines using BlueZ), if you encounter a `org.bluez.Error.InProgress` error, try the following in `bluetoothctl`:
+On Raspberry Pi / BlueZ, if you hit `org.bluez.Error.InProgress`:
 
-```
+```bash
+bluetoothctl
 power off
 power on
 scan on
 ```
-(See https://github.com/home-assistant/core/issues/76186#issuecomment-1204954485)
 
+---
 
-## Support the Project
+## Support
 
-If you find this unofficial project helpful, consider buying me a coffee! Your support helps maintain and improve this library.
-
+If this helped you integrate your Fit 8S scale, consider supporting the original project maintainer:  
 [![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ronnnnnnn)
 
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-
-## Disclaimer
-
-This is an independent project developed by the community. It is not endorsed by, directly affiliated with, maintained, authorized, or sponsored by Etekcity, VeSync Co., Ltd., or any of their affiliates or subsidiaries. All product and company names are the registered trademarks of their original owners. The use of any trade name or trademark is for identification and reference purposes only and does not imply any association with the trademark holder of their product brand.
+MIT License – see [LICENSE](LICENSE).

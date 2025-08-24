@@ -39,8 +39,7 @@ IS_MACOS = SYSTEM == "Darwin"
 
 
 if IS_LINUX:
-    from bleak.backends.bluezdbus.advertisement_monitor import OrPattern
-    from bleak.backends.bluezdbus.scanner import BlueZScannerArgs
+    from bleak.args.bluez import OrPattern, BlueZScannerArgs
 
     # or_patterns is a workaround for the fact that passive scanning
     # needs at least one matcher to be set. The below matcher
@@ -54,7 +53,7 @@ if IS_LINUX:
     )
 
 if IS_MACOS:
-    from bleak.backends.corebluetooth.scanner import CBScannerArgs
+    from bleak.args.corebluetooth import CBScannerArgs
 
 
 class BluetoothScanningMode(StrEnum):
@@ -202,21 +201,25 @@ class EtekcitySmartFitnessScale:
             }
 
             if IS_LINUX:
-                # Only Linux supports multiple adapters
                 if adapter:
                     scanner_kwargs["adapter"] = adapter
                 if scanning_mode == BluetoothScanningMode.PASSIVE:
                     scanner_kwargs["bluez"] = PASSIVE_SCANNER_ARGS
             elif IS_MACOS:
-                # We want mac address on macOS
+                # macOS: we want stable pseudo-MACs if possible
                 scanner_kwargs["cb"] = {"use_bdaddr": True}
 
-            PlatformBleakScanner = get_platform_scanner_backend_type()
-            self._scanner = PlatformBleakScanner(**scanner_kwargs)
+            self._PlatformBleakScanner = get_platform_scanner_backend_type()
+            self._scanner_kwargs = scanner_kwargs
+            self._scanner = None
         else:
+            # If a custom scanner is provided, keep it
+            self._PlatformBleakScanner = None
+            self._scanner_kwargs = None
             self._scanner = bleak_scanner_backend
-            self._scanner.register_detection_callback(self._advertisement_callback)
+
         self._lock = asyncio.Lock()
+
         self._unit_update_buff = bytearray.fromhex(UNIT_UPDATE_COMMAND)
         if display_unit != None:
             self.display_unit = display_unit
@@ -241,11 +244,16 @@ class EtekcitySmartFitnessScale:
 
     async def async_start(self) -> None:
         """Start the callbacks."""
-        _LOGGER.debug(
-            "Starting EtekcitySmartFitnessScale for address: %s", self.address
-        )
+        _LOGGER.debug("Starting EtekcitySmartFitnessScale for address: %s", self.address)
         try:
             async with self._lock:
+                # Create the scanner lazily (needed for macOS)
+                if self._scanner is None:
+                    if self._PlatformBleakScanner is None:
+                        # custom backend was supplied in __init__
+                        pass
+                    else:
+                        self._scanner = self._PlatformBleakScanner(**self._scanner_kwargs)
                 await self._scanner.start()
         except Exception as ex:
             _LOGGER.error("Failed to start scanner: %s", ex)

@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
-from src.etekcity_esf551_ble.const import DISPLAY_UNIT_KEY, IMPEDANCE_KEY, WEIGHT_KEY
-from src.etekcity_esf551_ble.parser import (
+from src.etekcity_fit8s_ble.const import DISPLAY_UNIT_KEY, IMPEDANCE_KEY, WEIGHT_KEY
+from src.etekcity_fit8s_ble.parser import (
     EtekcitySmartFitnessScale,
     ScaleData,
     WeightUnit,
@@ -80,7 +80,7 @@ def test_parse(test_id, input_data, expected_output):
 
 @pytest.mark.asyncio
 async def test_scale_start_stop():
-    with patch("src.etekcity_esf551_ble.parser.get_platform_scanner_backend_type") as mock_get_scanner_backend:
+    with patch("src.etekcity_fit8s_ble.parser.get_platform_scanner_backend_type") as mock_get_scanner_backend:
         mock_scanner = AsyncMock()
         mock_get_scanner_backend.return_value = Mock(return_value=mock_scanner)
 

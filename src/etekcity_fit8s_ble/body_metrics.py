@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import asyncio
 from collections.abc import Callable
 from datetime import date
 from enum import IntEnum
@@ -6,6 +9,7 @@ from math import floor
 
 from bleak.backends.scanner import BaseBleakScanner
 
+from .adv_reader import listen_advertisements, AdvReading
 from .const import IMPEDANCE_KEY, WEIGHT_KEY
 from .parser import (
     BluetoothScanningMode,
@@ -26,17 +30,22 @@ class BodyMetrics:
     """
 
     def __init__(
-        self, weight_kg: float, height_m: float, age: int, sex: Sex, impedance: int
+        self,
+        weight_kg: float | None,
+        height_m: float,
+        age: int,
+        sex: Sex,
+        impedance: int | None = None,
     ):
         """
         Initialize body metrics calculator.
 
         Args:
-            weight_kg: Weight in kilograms
+            weight_kg: Weight in kilograms (may be None if not available)
             height_m: Height in meters
             age: Age in years
             sex: Biological sex (Male or Female)
-            impedance: Bioelectrical impedance measurement from the scale in ohms
+            impedance: Bioelectrical impedance measurement from the scale in ohms (may be None or 0)
         """
         self.weight = weight_kg
         self.height = height_m
@@ -44,8 +53,49 @@ class BodyMetrics:
         self.sex = sex
         self.impedance = impedance
 
+    # -------------------
+    # Cascade orchestrator
+    # -------------------
+    def compute_all(self) -> None:
+        """
+        Force evaluation in dependency order so that, when inputs are available,
+        all dependent metrics are computed in a single pass.
+
+        This does not raise if inputs are missing; properties return None gracefully.
+        """
+        # 1) Base
+        _ = self.body_mass_index
+
+        # 2) Requires BMI + impedance
+        _ = self.body_fat_percentage
+
+        # 3) Requires weight + BFP
+        _ = self.fat_free_weight
+
+        # 4) Requires BMI + BFP + (weight & FFW) for VFV
+        _ = self.visceral_fat_value
+
+        # 5) Requires BFP + VFV
+        _ = self.subcutaneous_fat_percentage
+
+        # 6) Requires FFW + weight
+        _ = self.body_water_percentage
+        _ = self.skeletal_muscle_percentage
+        _ = self.muscle_mass
+        _ = self.bone_mass
+
+        # 7) Requires BFP + BWP + bone_mass + weight
+        _ = self.protein_percentage
+
+        # 8) Scores
+        _ = self.weight_score
+        _ = self.fat_score
+        _ = self.bmi_score
+        _ = self.health_score
+        _ = self.metabolic_age
+
     @cached_property
-    def body_mass_index(self) -> float:
+    def body_mass_index(self) -> float | None:
         """
         Calculate Body Mass Index (BMI).
 
@@ -54,10 +104,12 @@ class BodyMetrics:
         Returns:
             float: The calculated BMI value.
         """
+        if self.weight is None:
+            return None
         return floor(self.weight / (self.height**2) * 100) / 100
 
     @cached_property
-    def body_fat_percentage(self) -> float:
+    def body_fat_percentage(self) -> float | None:
         """
         Calculate Body Fat Percentage (BFP).
 
@@ -66,17 +118,26 @@ class BodyMetrics:
         Returns:
             float: The calculated BFP value.
         """
+        if self.weight is None or self.impedance is None or self.impedance == 0:
+            return None
+
+        if self.body_mass_index is None:
+            return None
+
         age_factor = [0.103, 0.097]
         bmi_factor = [1.524, 1.545]
         constant = [22, 12.7]
 
-        bfp = floor((age_factor[self.sex] * self.age + 
-               bmi_factor[self.sex] * self.body_mass_index - 
-               500/self.impedance - constant[self.sex]) * 10) / 10
+        bfp = floor(
+            (age_factor[self.sex] * self.age
+             + bmi_factor[self.sex] * self.body_mass_index
+             - 500 / self.impedance
+             - constant[self.sex]) * 10
+        ) / 10
         return max(5, min(75, bfp))
 
     @cached_property
-    def fat_free_weight(self) -> float:
+    def fat_free_weight(self) -> float | None:
         """
         Calculate Fat-Free Weight (FFW).
 
@@ -85,10 +146,12 @@ class BodyMetrics:
         Returns:
             float: The calculated FFW value in kg.
         """
+        if self.weight is None or self.body_fat_percentage is None:
+            return None
         return round(self.weight * (1 - self.body_fat_percentage / 100), 2)
 
     @cached_property
-    def subcutaneous_fat_percentage(self) -> float:
+    def subcutaneous_fat_percentage(self) -> float | None:
         """
         Calculate Subcutaneous Fat Percentage.
 
@@ -97,13 +160,15 @@ class BodyMetrics:
         Returns:
             float: The calculated subcutaneous fat percentage value.
         """
+        if self.visceral_fat_value is None or self.body_fat_percentage is None:
+            return None
         bfp_factor = [0.965, 0.983]
         vfv_factor = [0.22, 0.303]
-        return round(bfp_factor[self.sex] * self.body_fat_percentage - 
-                vfv_factor[self.sex] * self.visceral_fat_value, 1)
+        return round(bfp_factor[self.sex] * self.body_fat_percentage -
+                     vfv_factor[self.sex] * self.visceral_fat_value, 1)
 
     @cached_property
-    def visceral_fat_value(self) -> int:
+    def visceral_fat_value(self) -> int | None:
         """
         Calculate Visceral Fat Value.
 
@@ -112,18 +177,26 @@ class BodyMetrics:
         Returns:
             int: The calculated visceral fat value, between 1 and 30.
         """
+        if (
+            self.body_mass_index is None
+            or self.body_fat_percentage is None
+            or self.weight is None
+            or self.fat_free_weight is None
+        ):
+            return None
+
         bmi_factor = [0.8666, 0.8895]
         bfp_factor = [0.0082, 0.0943]
         fat_factor = [0.026, -0.0534]
         constant = [14.2692, 16.215]
-        vfv = int(bmi_factor[self.sex] * self.body_mass_index + 
-               bfp_factor[self.sex] * self.body_fat_percentage + 
-               fat_factor[self.sex] * (self.weight - self.fat_free_weight) - 
-               constant[self.sex])
+        vfv = int(bmi_factor[self.sex] * self.body_mass_index +
+                  bfp_factor[self.sex] * self.body_fat_percentage +
+                  fat_factor[self.sex] * (self.weight - self.fat_free_weight) -
+                  constant[self.sex])
         return max(1, min(30, vfv))
 
     @cached_property
-    def body_water_percentage(self) -> float:
+    def body_water_percentage(self) -> float | None:
         """
         Calculate Body Water Percentage (BWP).
 
@@ -132,6 +205,9 @@ class BodyMetrics:
         Returns:
             float: The calculated BWP value.
         """
+        if self.weight is None or self.fat_free_weight is None:
+            return None
+
         ff1_factor = [0.05, 0.06]
         ff2_factor = [0.76, 0.73]
         ff1 = max(1, ff1_factor[self.sex] * self.fat_free_weight)
@@ -139,7 +215,7 @@ class BodyMetrics:
         return max(10, min(80, bwp))
 
     @cached_property
-    def basal_metabolic_rate(self) -> int:
+    def basal_metabolic_rate(self) -> int | None:
         """
         Calculate Basal Metabolic Rate (BMR).
 
@@ -148,11 +224,14 @@ class BodyMetrics:
         Returns:
             int: The calculated BMR value.
         """
+        if self.fat_free_weight is None:
+            return None
+
         bmr = int(self.fat_free_weight * 21.6 + 370)
         return max(900, min(2500, bmr))
 
     @cached_property
-    def skeletal_muscle_percentage(self) -> float:
+    def skeletal_muscle_percentage(self) -> float | None:
         """
         Calculate Skeletal Muscle Percentage.
 
@@ -161,25 +240,31 @@ class BodyMetrics:
         Returns:
             float: The calculated skeletal muscle percentage value.
         """
+        if self.fat_free_weight is None or self.weight is None:
+            return None
+
         ff1_factor = [0.05, 0.06]
         ff2_factor = [0.68, 0.62]
         ff1 = max(1, ff1_factor[self.sex] * self.fat_free_weight)
         return round(ff2_factor[self.sex] * (self.fat_free_weight - ff1) / self.weight * 100, 1)
 
     @cached_property
-    def muscle_mass(self) -> float:
+    def muscle_mass(self) -> float | None:
         """
         Calculate Muscle Mass.
 
         Returns:
             float: The calculated muscle mass value in kg.
         """
+        if self.fat_free_weight is None:
+            return None
+
         ffw_factor = [0.05, 0.06]
         ff = max(1, ffw_factor[self.sex] * self.fat_free_weight)
         return round(self.fat_free_weight - ff, 2)
 
     @cached_property
-    def bone_mass(self) -> float:
+    def bone_mass(self) -> float | None:
         """
         Calculate Bone Mass.
 
@@ -188,11 +273,14 @@ class BodyMetrics:
         Returns:
             float: The calculated Bone Mass value in kg.
         """
+        if self.fat_free_weight is None:
+            return None
+
         ffw_factor = [0.05, 0.06]
         return max(1, round(ffw_factor[self.sex] * self.fat_free_weight, 2))
 
     @cached_property
-    def protein_percentage(self) -> float:
+    def protein_percentage(self) -> float | None:
         """
         Calculate Protein Percentage.
 
@@ -201,13 +289,17 @@ class BodyMetrics:
         Returns:
             float: The calculated protein percentage value.
         """
+        if self.body_fat_percentage is None or self.body_water_percentage is None \
+           or self.bone_mass is None or self.weight is None:
+            return None
+
         bfp_factor = [1, 1.05]
-        bpp = round(100 - bfp_factor[self.sex] * self.body_fat_percentage - 
-               self.bone_mass / self.weight * 100 - self.body_water_percentage, 1)
+        bpp = round(100 - bfp_factor[self.sex] * self.body_fat_percentage -
+                    self.bone_mass / self.weight * 100 - self.body_water_percentage, 1)
         return max(5, bpp)
 
     @cached_property
-    def weight_score(self) -> int:
+    def weight_score(self) -> int | None:
         """
         Calculate Weight Score.
 
@@ -216,6 +308,9 @@ class BodyMetrics:
         Returns:
             int: The calculated Weight Score, ranging from 0 to 100.
         """
+        if self.weight is None:
+            return None
+
         height_factor = [100, 137]
         constant = [80, 110]
         factor = [0.7, 0.45]
@@ -232,7 +327,7 @@ class BodyMetrics:
         return 0
 
     @cached_property
-    def fat_score(self) -> int:
+    def fat_score(self) -> int | None:
         """
         Calculate Fat Score.
 
@@ -241,6 +336,9 @@ class BodyMetrics:
         Returns:
             int: The calculated Fat Score, ranging from 0 to 100.
         """
+        if self.body_fat_percentage is None:
+            return None
+
         constant = [16, 26]
         if constant[self.sex] < self.body_fat_percentage:
             if self.body_fat_percentage >= 45:
@@ -249,7 +347,7 @@ class BodyMetrics:
         return int(100 - 50 * (constant[self.sex] - self.body_fat_percentage) / (constant[self.sex] - 5))
 
     @cached_property
-    def bmi_score(self) -> int:
+    def bmi_score(self) -> int | None:
         """
         Calculate BMI Score.
 
@@ -258,6 +356,9 @@ class BodyMetrics:
         Returns:
             int: The calculated BMI Score.
         """
+        if self.body_mass_index is None:
+            return None
+
         if self.body_mass_index >= 22:
             if self.body_mass_index >= 35:
                 return 50
@@ -271,7 +372,7 @@ class BodyMetrics:
         return 20
 
     @cached_property
-    def health_score(self) -> int:
+    def health_score(self) -> int | None:
         """
         Calculate Health Score.
 
@@ -280,10 +381,15 @@ class BodyMetrics:
         Returns:
             int: The calculated Health Score, ranging from 0 to 100.
         """
-        return (self.weight_score + self.fat_score + self.bmi_score) // 3
+        ws = self.weight_score
+        fs = self.fat_score
+        bs = self.bmi_score
+        if ws is None or fs is None or bs is None:
+            return None
+        return (ws + fs + bs) // 3
 
     @cached_property
-    def metabolic_age(self) -> int:
+    def metabolic_age(self) -> int | None:
         """
         Calculate Metabolic Age.
 
@@ -292,37 +398,41 @@ class BodyMetrics:
         Returns:
             int: The calculated Metabolic Age, with a minimum of 18.
         """
-        if self.health_score < 50:
+        hs = self.health_score
+        if hs is None:
+            return None
+
+        if hs < 50:
             age_adjustment_factor = 0
-        elif self.health_score < 60:
+        elif hs < 60:
             age_adjustment_factor = 1
-        elif self.health_score < 65:
+        elif hs < 65:
             age_adjustment_factor = 2
-        elif self.health_score < 68:
+        elif hs < 68:
             age_adjustment_factor = 3
-        elif self.health_score < 70:
+        elif hs < 70:
             age_adjustment_factor = 4
-        elif self.health_score < 73:
+        elif hs < 73:
             age_adjustment_factor = 5
-        elif self.health_score < 75:
+        elif hs < 75:
             age_adjustment_factor = 6
-        elif self.health_score < 80:
+        elif hs < 80:
             age_adjustment_factor = 7
-        elif self.health_score < 85:
+        elif hs < 85:
             age_adjustment_factor = 8
-        elif self.health_score < 88:
+        elif hs < 88:
             age_adjustment_factor = 9
-        elif self.health_score < 90:
+        elif hs < 90:
             age_adjustment_factor = 10
-        elif self.health_score < 93:
+        elif hs < 93:
             age_adjustment_factor = 11
-        elif self.health_score < 95:
+        elif hs < 95:
             age_adjustment_factor = 12
-        elif self.health_score < 97:
+        elif hs < 97:
             age_adjustment_factor = 13
-        elif self.health_score < 98:
+        elif hs < 98:
             age_adjustment_factor = 14
-        elif self.health_score < 99:
+        elif hs < 99:
             age_adjustment_factor = 15
         else:
             age_adjustment_factor = 16
@@ -339,7 +449,39 @@ def _calc_age(birthdate: date) -> int:
 
 
 def _as_dictionary(obj: BodyMetrics) -> dict[str, int | float]:
-    return {prop: getattr(obj, prop) for prop in dir(obj) if not prop.startswith("__")}
+    """
+    Export only numeric, non-None computed metrics (skip inputs & None values).
+
+    Calls obj.compute_all() first to ensure all possible dependent metrics
+    are evaluated in the correct order when inputs are present.
+    """
+    # Force cascade computation
+    obj.compute_all()
+
+    fields = (
+        "body_mass_index",
+        "body_fat_percentage",
+        "fat_free_weight",
+        "subcutaneous_fat_percentage",
+        "visceral_fat_value",
+        "body_water_percentage",
+        "basal_metabolic_rate",
+        "skeletal_muscle_percentage",
+        "muscle_mass",
+        "bone_mass",
+        "protein_percentage",
+        "weight_score",
+        "fat_score",
+        "bmi_score",
+        "health_score",
+        "metabolic_age",
+    )
+    out: dict[str, int | float] = {}
+    for name in fields:
+        val = getattr(obj, name)
+        if isinstance(val, (int, float)) and val is not None:
+            out[name] = val
+    return out
 
 
 class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
@@ -352,43 +494,56 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
 
     All the body metrics are added to the ScaleData.measurements dictionary
     before being passed to the notification callback.
+
+    It also supports an optional advertisement-only mode (no GATT connection):
+    when `use_advertisements=True`, readings are parsed from ManufacturerData
+    broadcasts and fed through the same body-metrics pipeline.
     """
 
     def __init__(
         self,
-        address: str,
         notification_callback: Callable[[ScaleData], None],
         sex: Sex,
         birthdate: date,
         height_m: float,
+        address: str | None = None,
         display_unit: WeightUnit = None,
         scanning_mode: BluetoothScanningMode = BluetoothScanningMode.ACTIVE,
         adapter: str | None = None,
         bleak_scanner_backend: BaseBleakScanner = None,
+        use_advertisements: bool = False,
     ) -> None:
         """
         Initialize the scale interface with body metrics calculation.
 
         Args:
-            address: Bluetooth address of the scale
             notification_callback: Function to call when weight data is received
             sex: Biological sex of the user (Male or Female)
             birthdate: Date of birth of the user
             height_m: Height of the user in meters
+            address: Optional Bluetooth address of the scale.
+                     If None, advertisement mode will accept any matching manufacturer data.
             display_unit: Preferred weight unit (KG, LB, or ST). If specified,
                           the scale will be instructed to change its display unit
                           to this value upon connection.
             scanning_mode: Mode for BLE scanning (ACTIVE or PASSIVE).
             adapter: Bluetooth adapter to use (Linux only).
-            proxy_mode: Bluetooth proxy mode (NATIVE, PROXY, or HYBRID).
-            esphome_clients: List of ESPHome API clients for proxy mode.
+            bleak_scanner_backend: Optional custom BLE scanner backend.
+            use_advertisements: If True, read data from advertisements (no GATT connect).
         """
         self._sex = sex
         self._birthdate = birthdate
         self._height_m = height_m
         self._original_callback = notification_callback
+        self._adv_mode = use_advertisements
+        self._adv_task: asyncio.Task | None = None
+
+        # Only call into the base class if we have an address (GATT mode)
+        if not use_advertisements and not address:
+            raise ValueError("Address must be provided when not using advertisement mode")
+
         super().__init__(
-            address,
+            address or "",
             lambda data: self._wrapped_notification_callback(
                 self._sex, self._birthdate, self._height_m, data
             ),
@@ -403,11 +558,76 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
     ) -> None:
         data.measurements |= _as_dictionary(
             BodyMetrics(
-                data.measurements[WEIGHT_KEY],
+                data.measurements.get(WEIGHT_KEY),
                 height_m,
                 _calc_age(birthdate),
                 sex,
-                data.measurements[IMPEDANCE_KEY],
+                data.measurements.get(IMPEDANCE_KEY),
             )
         )
         self._original_callback(data)
+
+    @staticmethod
+    def _scale_data_from_adv(ar: AdvReading, display_unit: WeightUnit) -> ScaleData:
+        """
+        Convert an AdvReading into a ScaleData consistent with the library's schema.
+        """
+        device = ScaleData()
+        device.name = "Etekcity Scale (ADV)"
+        device.address = ar.address or (ar.mac_in_frame or "")
+        device.hw_version = ""
+        device.sw_version = ""
+        device.display_unit = display_unit
+        measurements: dict[str, float | int | None] = {}
+        if ar.weight_kg is not None:
+            measurements[WEIGHT_KEY] = ar.weight_kg
+        if ar.impedance_ohm is not None and ar.impedance_ohm > 0:
+            measurements[IMPEDANCE_KEY] = ar.impedance_ohm
+        device.measurements = measurements
+        return device
+
+    async def async_start(self) -> None:
+        """
+        Start receiving data. In advertisement mode, start a background listener
+        that parses ManufacturerData 0x06D0 frames and emits ScaleData objects.
+        Otherwise delegate to the base class (GATT notifications).
+        """
+        if self._adv_mode:
+            async def _runner() -> None:
+                def _on_adv(ar: AdvReading) -> None:
+                    display = self.display_unit or WeightUnit.KG
+                    sd = self._scale_data_from_adv(ar, display)
+                    # Reuse body metrics enrichment logic
+                    self._wrapped_notification_callback(self._sex, self._birthdate, self._height_m, sd)
+
+                await listen_advertisements(
+                    on_reading=_on_adv,
+                    require_service=False,
+                    stable_repeats=10,
+                    weight_epsilon_kg=0.02,
+                    min_delta_kg=0.05,
+                    emit_transients=False,
+                    min_emit_interval_s=1.0,
+                    address_filter=self.address if self.address else None,
+                )
+
+            self._adv_task = asyncio.create_task(_runner())
+            return
+
+        await super().async_start()
+
+    async def async_stop(self) -> None:
+        """
+        Stop receiving data.
+        """
+        if self._adv_mode:
+            if self._adv_task:
+                self._adv_task.cancel()
+                try:
+                    await self._adv_task
+                except Exception:
+                    pass
+                self._adv_task = None
+            return
+
+        await super().async_stop()

@@ -3,56 +3,70 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "etekcity_esf551_ble"
+name = "etekcity_fit8s_ble"
 dynamic = ["version"]
 authors = [
-  { name="Ron", email="ronnnnnnn@gmail.com" },
+  { name = "Ron", email = "ronnnnnnn@gmail.com" },
 ]
-description = "An unofficial Python package for interacting with Etekcity ESF-551 Smart Fitness Scales using BLE. Not affiliated with Etekcity, VeSync Co., Ltd., or any of their subsidiaries."
+description = "An unofficial Python package for interacting with Etekcity ESF-551 (Fit 8S) Smart Fitness Scales using BLE. Not affiliated with Etekcity, VeSync Co., Ltd., or any of their subsidiaries."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = { file = "LICENSE" }
 keywords = [
-    "etekcity",
-    "esf551",
-    "smart scale",
-    "fitness scale",
-    "bluetooth",
-    "ble",
-    "weight",
-    "health",
-    "iot",
-    "smart home",
+  "etekcity",
+  "fit8s",
+  "esf551",
+  "smart scale",
+  "fitness scale",
+  "bluetooth",
+  "ble",
+  "weight",
+  "health",
+  "iot",
+  "smart home",
 ]
 classifiers = [
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Home Automation",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Home Automation",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "bleak",
-    "bleak_retry_connector",
+  "bleak",
+  "bleak_retry_connector",
 ]
 
 [tool.hatch.version]
-path = "src/etekcity_esf551_ble/_version.py"
+path = "src/etekcity_fit8s_ble/_version.py"
 
 [project.urls]
-"Homepage" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble"
-"Bug Tracker" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble/issues"
-"Documentation" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble#readme"
-"Source Code" = "https://github.com/ronnnnnnnnnnnnn/etekcity_esf551_ble"
+Homepage = "https://github.com/varshans/etekcity_fit8s_ble"
+"Bug Tracker" = "https://github.com/varshans/etekcity_fit8s_ble/issues"
+Documentation = "https://github.com/varshans/etekcity_fit8s_ble#readme"
+"Source Code" = "https://github.com/varshans/etekcity_fit8s_ble"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/etekcity_esf551_ble"]
+packages = ["src/etekcity_fit8s_ble"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src",
+  "src",
+  "README.md",
+  "LICENSE",
 ]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7.4",
+  "pytest-asyncio>=0.23",
+  "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

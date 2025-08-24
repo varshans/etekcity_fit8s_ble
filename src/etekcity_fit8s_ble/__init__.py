@@ -8,6 +8,7 @@ from .parser import (
     ScaleData,
     WeightUnit,
 )
+from .adv_reader import AdvReading
 
 __all__ = [
     "EtekcitySmartFitnessScale",
@@ -20,4 +21,5 @@ __all__ = [
     "Sex",
     "ConnectionStatus",
     "BluetoothScanningMode",
+    "AdvReading"
 ]
