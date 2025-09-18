@@ -512,6 +512,8 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
         adapter: str | None = None,
         bleak_scanner_backend: BaseBleakScanner = None,
         use_advertisements: bool = False,
+        *,
+        adv_tuning: dict | None = None,
     ) -> None:
         """
         Initialize the scale interface with body metrics calculation.
@@ -537,6 +539,7 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
         self._original_callback = notification_callback
         self._adv_mode = use_advertisements
         self._adv_task: asyncio.Task | None = None
+        self._adv_tuning = adv_tuning or {}
 
         # Only call into the base class if we have an address (GATT mode)
         if not use_advertisements and not address:
@@ -603,12 +606,8 @@ class EtekcitySmartFitnessScaleWithBodyMetrics(EtekcitySmartFitnessScale):
                 await listen_advertisements(
                     on_reading=_on_adv,
                     require_service=False,
-                    stable_repeats=10,
-                    weight_epsilon_kg=0.02,
-                    min_delta_kg=0.05,
-                    emit_transients=False,
-                    min_emit_interval_s=1.0,
                     address_filter=self.address if self.address else None,
+                    **self._adv_tuning,
                 )
 
             self._adv_task = asyncio.create_task(_runner())

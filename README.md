@@ -86,6 +86,7 @@ async def main():
         height_m=1.80,
         display_unit=WeightUnit.KG,
         use_advertisements=True,   # ADV mode (no GATT connect)
+        adv_tuning=dict(stable_repeats=5),
     )
 
     await scale.async_start()
@@ -105,6 +106,16 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+All advertisement-mode stability and smoothing options live inside `adv_tuning`.
+
+Available keys:
+
+- `stable_repeats` (int, default: 10) - number of near-identical frames before marking stable
+- `emit_transients` (bool, default: False) - allow transient weight changes
+- `min_delta_kg` (float, default: 0.02) - min change vs last emit before sending a transient
+- `weight_epsilon_kg` (float, default: 0.02) - quantization tolerance for stability
+- `min_emit_interval_s` (float, default: 1.0) - cooldown between emissions
 
 ---
 
